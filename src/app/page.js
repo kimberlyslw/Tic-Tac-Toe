@@ -1,32 +1,36 @@
 'use client';
 import { useState } from 'react';
 
-function Square({ value, onSquareClick }) {
+function Square({ value, onSquareClick, isWinning }) {
   return (
-    <button className="square" onClick={onSquareClick}>
+    <button
+      className={`square ${isWinning ? 'winning' : ''}`}
+      onClick={onSquareClick}
+    >
       {value}
     </button>
   );
 }
 
 function Board({ xIsNext, squares, onPlay }) {
+  const winnerInfo = calculateWinner(squares);
+  const winner = winnerInfo?.winner;
+  const winningLine = winnerInfo?.line;
+
   function handleClick(i) {
-    if (calculateWinner(squares) || squares[i]) {
-      return;
-    }
+    if (winner || squares[i]) return;
+
     const nextSquares = squares.slice();
-    if (xIsNext) {
-      nextSquares[i] = 'X';
-    } else {
-      nextSquares[i] = 'O';
-    }
-    onPlay(nextSquares);
+    nextSquares[i] = xIsNext ? 'X' : 'O';
+
+    onPlay(nextSquares, calculateWinner(nextSquares));
   }
 
-  const winner = calculateWinner(squares);
   let status;
   if (winner) {
     status = 'Vencedor: ' + winner;
+  } else if (!squares.includes(null)) {
+    status = 'Empate!';
   } else {
     status = 'Próximo a jogar: ' + (xIsNext ? 'X' : 'O');
   }
@@ -34,21 +38,21 @@ function Board({ xIsNext, squares, onPlay }) {
   return (
     <>
       <div className="status">{status}</div>
-      <div className="board-row">
-        <Square value={squares[0]} onSquareClick={() => handleClick(0)} />
-        <Square value={squares[1]} onSquareClick={() => handleClick(1)} />
-        <Square value={squares[2]} onSquareClick={() => handleClick(2)} />
-      </div>
-      <div className="board-row">
-        <Square value={squares[3]} onSquareClick={() => handleClick(3)} />
-        <Square value={squares[4]} onSquareClick={() => handleClick(4)} />
-        <Square value={squares[5]} onSquareClick={() => handleClick(5)} />
-      </div>
-      <div className="board-row">
-        <Square value={squares[6]} onSquareClick={() => handleClick(6)} />
-        <Square value={squares[7]} onSquareClick={() => handleClick(7)} />
-        <Square value={squares[8]} onSquareClick={() => handleClick(8)} />
-      </div>
+      {[0, 3, 6].map(row => (
+        <div className="board-row" key={row}>
+          {[0, 1, 2].map(col => {
+            const idx = row + col;
+            return (
+              <Square
+                key={idx}
+                value={squares[idx]}
+                onSquareClick={() => handleClick(idx)}
+                isWinning={winningLine?.includes(idx)}
+              />
+            );
+          })}
+        </div>
+      ))}
     </>
   );
 }
@@ -59,7 +63,7 @@ export default function Home() {
   const xIsNext = currentMove % 2 === 0;
   const currentSquares = history[currentMove];
 
-  function handlePlay(nextSquares) {
+  function handlePlay(nextSquares, winnerInfo = null) {
     const nextHistory = [...history.slice(0, currentMove + 1), nextSquares];
     setHistory(nextHistory);
     setCurrentMove(nextHistory.length - 1);
@@ -69,16 +73,22 @@ export default function Home() {
     setCurrentMove(nextMove);
   }
 
+  function restartGame() {
+    setHistory([Array(9).fill(null)]);
+    setCurrentMove(0);
+  }
+
   const moves = history.map((squares, move) => {
-    let description;
-    if (move > 0) {
-      description = 'Rodada nº #' + move;
-    } else {
-      description = 'Começo do jogo';
-    }
+    const isCurrent = move === currentMove;
+    const description = move > 0 ? 'Rodada nº #' + move : 'Começo do jogo';
     return (
       <li key={move}>
-        <button onClick={() => jumpTo(move)}>{description}</button>
+        <button
+          onClick={() => jumpTo(move)}
+          className={isCurrent ? 'move-button current' : 'move-button'}
+        >
+          {description}
+        </button>
       </li>
     );
   });
@@ -86,20 +96,21 @@ export default function Home() {
   return (
     <div className="game">
       <div className="game-board">
+        <h1>Tic-Tac-Toe</h1>
+        <p className="description">
+          Jogo da velha para dois jogadores.<br />
+          Clique em uma célula vazia para marcar.<br />
+          X começa jogando.
+        </p>
         <Board xIsNext={xIsNext} squares={currentSquares} onPlay={handlePlay} />
-        <button onClick={() => {
-          setHistory([Array(9).fill(null)]);
-          setCurrentMove(0);
-        }}>
-          Reiniciar Jogo
-        </button>
+        <button onClick={restartGame}>Reiniciar Jogo</button>
       </div>
       <div className="game-info">
+        <h2>Movimentos</h2>
         <ol>{moves}</ol>
       </div>
     </div>
   );
-  
 }
 
 function calculateWinner(squares) {
@@ -116,7 +127,7 @@ function calculateWinner(squares) {
   for (let i = 0; i < lines.length; i++) {
     const [a, b, c] = lines[i];
     if (squares[a] && squares[a] === squares[b] && squares[a] === squares[c]) {
-      return squares[a];
+      return { winner: squares[a], line: [a, b, c] };
     }
   }
   return null;
