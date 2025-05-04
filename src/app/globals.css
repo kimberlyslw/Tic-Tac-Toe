@@ -33,6 +33,10 @@ body {
   cursor: pointer;
 }
 
+.winning {
+  background-color: #004730aa;
+}
+
 .square:hover {
   background-color: #333;
 }
